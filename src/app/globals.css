@@ -23,4 +23,46 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overscroll-behavior-y: none;
 }
+
+@keyframes flame-flicker {
+  0%   { opacity: 0.85; transform: scaleY(1)    scaleX(1); }
+  25%  { opacity: 1;    transform: scaleY(1.03) scaleX(0.98); }
+  50%  { opacity: 0.9;  transform: scaleY(0.98) scaleX(1.02); }
+  75%  { opacity: 1;    transform: scaleY(1.04) scaleX(0.97); }
+  100% { opacity: 0.85; transform: scaleY(1)    scaleX(1); }
+}
+
+@keyframes flame-glow-pulse {
+  0%, 100% { box-shadow: 0 0 18px 4px rgba(255,60,0,0.35), 0 0 40px 8px rgba(255,100,0,0.15); }
+  50%       { box-shadow: 0 0 28px 8px rgba(255,80,0,0.55), 0 0 60px 16px rgba(255,120,0,0.25); }
+}
+
+@keyframes ember-rise {
+  0%   { transform: translateY(0)   translateX(0)   scale(1);   opacity: 0.9; }
+  50%  { transform: translateY(-18px) translateX(4px)  scale(0.7); opacity: 0.6; }
+  100% { transform: translateY(-36px) translateX(-4px) scale(0.3); opacity: 0; }
+}
+
+.flame-border {
+  animation: flame-glow-pulse 1.6s ease-in-out infinite;
+  border-color: rgba(255,80,0,0.7) !important;
+}
+
+.flame-flicker {
+  animation: flame-flicker 0.9s ease-in-out infinite;
+}
+
+.ember {
+  position: absolute;
+  pointer-events: none;
+  font-size: 10px;
+  animation: ember-rise 1.8s ease-out infinite;
+}
+
+.ember:nth-child(1) { left: 10%; animation-delay: 0s;    animation-duration: 1.6s; }
+.ember:nth-child(2) { left: 30%; animation-delay: 0.4s;  animation-duration: 2.0s; }
+.ember:nth-child(3) { left: 55%; animation-delay: 0.8s;  animation-duration: 1.5s; }
+.ember:nth-child(4) { left: 75%; animation-delay: 1.2s;  animation-duration: 1.9s; }
+.ember:nth-child(5) { left: 90%; animation-delay: 0.2s;  animation-duration: 1.7s; }

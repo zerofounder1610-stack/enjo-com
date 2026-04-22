@@ -1,12 +1,57 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+
+export const IGNITE_LIMIT = 3;
+
+// .env.local の ADMIN_HANDLES に自分のハンドルを設定すると上限スキップ
+// 例: ADMIN_HANDLES=hiroto,testuser
+const ADMIN_HANDLES = (process.env.ADMIN_HANDLES ?? "")
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
+
+function isAdmin(handle: string): boolean {
+  return ADMIN_HANDLES.includes(handle.toLowerCase());
+}
+
+async function getUsedCount(handle: string): Promise<number> {
+  const { count } = await supabase
+    .from("posts")
+    .select("*", { count: "exact", head: true })
+    .eq("handle", handle)
+    .in("flame_state", ["ignited", "apologized"]);
+  return count ?? 0;
+}
+
+export async function GET(req: NextRequest) {
+  const handle = req.nextUrl.searchParams.get("handle");
+  if (!handle) return NextResponse.json({ used: 0, remaining: IGNITE_LIMIT, limit: IGNITE_LIMIT, isAdmin: false });
+  if (isAdmin(handle)) {
+    return NextResponse.json({ used: 0, remaining: 999, limit: IGNITE_LIMIT, isAdmin: true });
+  }
+  const used = await getUsedCount(handle);
+  return NextResponse.json({ used, remaining: Math.max(0, IGNITE_LIMIT - used), limit: IGNITE_LIMIT, isAdmin: false });
+}
 
 const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
-  const { post } = await req.json();
+  const { post, handle } = await req.json();
+
   if (!post || typeof post !== "string") {
     return NextResponse.json({ error: "投稿内容が不正です" }, { status: 400 });
+  }
+
+  // 上限チェック（管理者はスキップ）
+  if (handle && typeof handle === "string" && !isAdmin(handle)) {
+    const used = await getUsedCount(handle);
+    if (used >= IGNITE_LIMIT) {
+      return NextResponse.json(
+        { error: `炎上できるのは${IGNITE_LIMIT}回までです🙏` },
+        { status: 429 }
+      );
+    }
   }
 
   const message = await client.messages.create({

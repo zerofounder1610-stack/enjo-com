@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   }
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 1024,
     system: `あなたはSNS炎上シミュレーターの謝罪採点AIです。
 炎上した投稿と、ユーザーが書いた謝罪文を受け取り、謝罪の質を採点します。

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { PostState } from "@/app/page";
 import FlameMeter from "./FlameMeter";
 
@@ -8,16 +8,97 @@ type Props = {
   post: PostState;
   onIgnite: () => void;
   onApologize: (text: string) => Promise<void>;
+  onDelete?: () => void;
+  igniteRemaining?: number;
+  isAdmin?: boolean;
 };
 
 const INTENSITY_EMOJI = ["", "😤", "😡", "🤬", "💢", "🔥"];
 
-export default function PostCard({ post, onIgnite, onApologize }: Props) {
+function getTitle(score: number): { label: string; color: string } | null {
+  if (score >= 100) return { label: "🌋 伝説の炎上", color: "text-red-300 bg-red-950/60 border-red-500/50" };
+  if (score >= 90)  return { label: "👑 炎上王",     color: "text-orange-300 bg-orange-950/60 border-orange-500/50" };
+  if (score >= 80)  return { label: "🔥 炎上マスター", color: "text-orange-400 bg-orange-950/50 border-orange-600/50" };
+  if (score >= 70)  return { label: "💢 上級炎上者",  color: "text-yellow-400 bg-yellow-950/40 border-yellow-600/40" };
+  if (score >= 50)  return { label: "🔥 中級炎上者",  color: "text-yellow-500 bg-yellow-950/30 border-yellow-700/30" };
+  if (score >= 30)  return { label: "😤 初級炎上者",  color: "text-gray-300 bg-gray-800/60 border-gray-600/40" };
+  return null;
+}
+
+function calcEngagement(score: number) {
+  const s = score;
+  return {
+    impressions: s * 800 + s * s * 5,
+    reposts: s * 30 + s * s * 0.4,
+    likes: s * 15 + s * s * 0.2,
+    replies: s * 8 + s * s * 0.1,
+  };
+}
+
+function fmt(n: number): string {
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}千`;
+  return String(Math.round(n));
+}
+
+export default function PostCard({ post, onIgnite, onApologize, onDelete, igniteRemaining, isAdmin }: Props) {
   const [showComments, setShowComments] = useState(false);
   const [showApologyBox, setShowApologyBox] = useState(false);
   const [apologyText, setApologyText] = useState("");
   const [apologizing, setApologizing] = useState(false);
   const [apologyError, setApologyError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
+  const avatarRef = useRef<HTMLDivElement>(null);
+  const usernameRef = useRef<HTMLSpanElement>(null);
+  const handleRef = useRef<HTMLSpanElement>(null);
+
+  async function handleShare() {
+    if (sharing || !post.flameResult) return;
+    setSharing(true);
+
+    const target = cardRef.current;
+    if (!target) return;
+
+    try {
+      // modern-screenshot は SVG foreignObject 経由でキャプチャするため
+      // oklch/lab などのブラウザ依存カラーもそのまま処理できる
+      const { domToPng } = await import("modern-screenshot");
+
+      const dataUrl = await domToPng(target, { scale: 2 });
+      const flameScore = post.flameResult!.flameScore;
+
+      // Android / iOS のみ Web Share API（ファイル共有）
+      const isMobileUA = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobileUA && navigator.canShare) {
+        const blob = await fetch(dataUrl).then((r) => r.blob());
+        const file = new File([blob], "enjo-result.png", { type: "image/png" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `炎上スコア${flameScore}点！`,
+            text: `炎上度${flameScore}点でした🔥 #炎上com`,
+          });
+          return;
+        }
+      }
+
+      // PC: 画像ダウンロード
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = "enjo-result.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("シェア失敗:", err);
+      if (err instanceof Error && err.name === "AbortError") return;
+      alert("シェアに失敗しました: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSharing(false);
+    }
+  }
 
   async function handleApologize(e: React.FormEvent) {
     e.preventDefault();
@@ -36,19 +117,41 @@ export default function PostCard({ post, onIgnite, onApologize }: Props) {
 
   const isIgnited = post.flameState === "ignited" || post.flameState === "apologized";
 
+  const flameScore = post.flameResult?.flameScore ?? 0;
+  const isRaging = isIgnited && flameScore >= 80;
+  const title = isIgnited && post.flameResult ? getTitle(flameScore) : null;
+
   return (
-    <article className="px-4 py-3 hover:bg-gray-950 transition-colors">
+  <>
+    <article
+      ref={cardRef}
+      className={`px-4 py-3 transition-colors relative overflow-hidden border-l-2 ${
+        isRaging
+          ? "hover:bg-red-950/20 flame-border border-orange-600/60"
+          : "hover:bg-gray-950 border-transparent"
+      }`}
+    >
+      {/* 80点以上：火の粉エフェクト */}
+      {isRaging && (
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+          <span className="ember">🔥</span>
+          <span className="ember">✨</span>
+          <span className="ember">🔥</span>
+          <span className="ember">✨</span>
+          <span className="ember">🔥</span>
+        </div>
+      )}
       <div className="flex gap-3">
         {/* アバター */}
-        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-xl shrink-0 select-none">
+        <div ref={avatarRef} className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-xl shrink-0 select-none">
           {post.avatar}
         </div>
 
         <div className="flex-1 min-w-0">
           {/* ヘッダー */}
           <div className="flex items-center gap-1 flex-wrap">
-            <span className="font-bold text-sm">{post.username}</span>
-            <span className="text-gray-500 text-sm">@{post.handle}</span>
+            <span ref={usernameRef} className="font-bold text-sm">{post.username}</span>
+            <span ref={handleRef} className="text-gray-500 text-sm">@{post.handle}</span>
             <span className="text-gray-500 text-sm">·</span>
             <span className="text-gray-500 text-sm">{post.timestamp}</span>
             {post.flameState === "igniting" && (
@@ -61,6 +164,35 @@ export default function PostCard({ post, onIgnite, onApologize }: Props) {
                 炎上中🔥 {post.flameResult.flameScore}点
               </span>
             )}
+            {(post.isOwn || isAdmin) && onDelete && (
+              <div className="relative ml-auto">
+                <button
+                  onClick={() => setShowMenu((v) => !v)}
+                  className="text-gray-500 hover:text-gray-300 hover:bg-gray-800 p-1 rounded-full transition-colors"
+                >
+                  ···
+                </button>
+                {showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                    <div className="absolute right-0 top-7 z-20 bg-gray-900 border border-gray-700 rounded-xl shadow-xl overflow-hidden min-w-[120px]">
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          const msg = isAdmin && !post.isOwn
+                            ? `【管理者】この投稿を削除しますか？`
+                            : "この投稿を削除しますか？\n※炎上させた場合、使用回数は減りません。";
+                          if (window.confirm(msg)) onDelete();
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-gray-800 transition-colors"
+                      >
+                        🗑 投稿を削除
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 投稿本文 */}
@@ -70,6 +202,11 @@ export default function PostCard({ post, onIgnite, onApologize }: Props) {
           {isIgnited && post.flameResult && (
             <div className="mt-3 space-y-2">
               <FlameMeter score={post.flameResult.flameScore} />
+              {title && (
+                <span className={`inline-flex items-center text-xs px-2.5 py-1 rounded-full border font-bold ${title.color} ${isRaging ? "flame-flicker" : ""}`}>
+                  {title.label}
+                </span>
+              )}
               <p className="text-xs text-gray-400">{post.flameResult.summary}</p>
 
               <button
@@ -151,35 +288,66 @@ export default function PostCard({ post, onIgnite, onApologize }: Props) {
             </form>
           )}
 
+          {/* インプレッション行（炎上時） */}
+          {isIgnited && post.flameResult && (() => {
+            const eng = calcEngagement(post.flameResult.flameScore);
+            return (
+              <div className="mt-3 pt-3 border-t border-gray-800 flex gap-4 text-xs text-gray-400">
+                <span><strong className="text-white">{fmt(eng.impressions)}</strong> インプレッション</span>
+                <span><strong className="text-white">{fmt(eng.reposts)}</strong> リポスト</span>
+                <span><strong className="text-white">{fmt(eng.likes)}</strong> いいね</span>
+                <span><strong className="text-white">{fmt(eng.replies)}</strong> 返信</span>
+              </div>
+            );
+          })()}
+
           {/* アクションバー */}
           <div className="flex items-center gap-0.5 mt-3 text-gray-500 text-xs -ml-1.5">
-            <button className="flex items-center gap-1.5 hover:text-blue-400 hover:bg-blue-400/10 transition-colors px-2 py-1.5 rounded-full">
-              <span>💬</span>
-              <span>0</span>
-            </button>
-            <button className="flex items-center gap-1.5 hover:text-green-400 hover:bg-green-400/10 transition-colors px-2 py-1.5 rounded-full">
-              <span>🔁</span>
-              <span>{post.reposts}</span>
-            </button>
-            <button className="flex items-center gap-1.5 hover:text-pink-400 hover:bg-pink-400/10 transition-colors px-2 py-1.5 rounded-full">
-              <span>❤️</span>
-              <span>{post.likes}</span>
-            </button>
+            {isIgnited && post.flameResult ? (() => {
+              const eng = calcEngagement(post.flameResult.flameScore);
+              return (<>
+                <button className="flex items-center gap-1.5 hover:text-blue-400 hover:bg-blue-400/10 transition-colors px-2 py-1.5 rounded-full">
+                  <span>💬</span><span>{fmt(eng.replies)}</span>
+                </button>
+                <button className="flex items-center gap-1.5 hover:text-green-400 hover:bg-green-400/10 transition-colors px-2 py-1.5 rounded-full">
+                  <span>🔁</span><span>{fmt(eng.reposts)}</span>
+                </button>
+                <button className="flex items-center gap-1.5 hover:text-pink-400 hover:bg-pink-400/10 transition-colors px-2 py-1.5 rounded-full">
+                  <span>❤️</span><span>{fmt(eng.likes)}</span>
+                </button>
+              </>);
+            })() : (<>
+              <button className="flex items-center gap-1.5 hover:text-blue-400 hover:bg-blue-400/10 transition-colors px-2 py-1.5 rounded-full">
+                <span>💬</span><span>0</span>
+              </button>
+              <button className="flex items-center gap-1.5 hover:text-green-400 hover:bg-green-400/10 transition-colors px-2 py-1.5 rounded-full">
+                <span>🔁</span><span>{post.reposts}</span>
+              </button>
+              <button className="flex items-center gap-1.5 hover:text-pink-400 hover:bg-pink-400/10 transition-colors px-2 py-1.5 rounded-full">
+                <span>❤️</span><span>{post.likes}</span>
+              </button>
+            </>)}
 
             <div className="flex-1" />
 
-            {post.flameState === "normal" && (
-              <button
-                onClick={onIgnite}
-                className="text-orange-400 hover:text-orange-300 border border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-xs px-3 py-1 rounded-full transition-colors font-medium"
-              >
-                炎上させる🔥
-              </button>
+            {post.flameState === "normal" && post.isOwn && (
+              igniteRemaining === 0 ? (
+                <span className="text-gray-600 border border-gray-700 text-xs px-3 py-1 rounded-full cursor-not-allowed">
+                  上限🔥
+                </span>
+              ) : (
+                <button
+                  onClick={onIgnite}
+                  className="text-orange-400 hover:text-orange-300 border border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-xs px-3 py-1 rounded-full transition-colors font-medium"
+                >
+                  炎上させる🔥{igniteRemaining !== undefined && igniteRemaining <= 2 && (
+                    <span className="ml-1 text-orange-300">残り{igniteRemaining}</span>
+                  )}
+                </button>
+              )
             )}
-            {post.flameState === "igniting" && (
-              <span className="text-orange-400 text-xs animate-pulse px-3">
-                炎上中...
-              </span>
+            {post.flameState === "igniting" && post.isOwn && (
+              <span className="text-orange-400 text-xs animate-pulse px-3">炎上中...</span>
             )}
             {post.flameState === "ignited" && !showApologyBox && (
               <button
@@ -189,9 +357,30 @@ export default function PostCard({ post, onIgnite, onApologize }: Props) {
                 謝罪する🙇
               </button>
             )}
+            {isIgnited && (
+              <button
+                onClick={handleShare}
+                disabled={sharing}
+                className="flex items-center gap-1 text-gray-400 hover:text-white disabled:opacity-50 border border-gray-700 hover:border-gray-500 hover:bg-gray-800 text-xs px-3 py-1 rounded-full transition-colors font-medium ml-1"
+                title="炎上カードを保存"
+              >
+                {sharing ? (
+                  <span className="animate-pulse">保存中...</span>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.912-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                    シェア
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
     </article>
+
+  </>
   );
 }
