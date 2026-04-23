@@ -179,6 +179,18 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
             </div>
           </div>
 
+          {/* 謝罪ボタン（炎上時・ヘッダー直下） */}
+          {post.flameState === "ignited" && !showApologyBox && (
+            <div className="flex justify-end mt-1">
+              <button
+                onClick={() => setShowApologyBox(true)}
+                className="text-blue-400 hover:text-blue-300 border border-blue-500/40 hover:border-blue-400 hover:bg-blue-500/10 text-xs px-3 py-1 rounded-full transition-colors font-medium"
+              >
+                謝罪する🙇
+              </button>
+            </div>
+          )}
+
           {/* 投稿本文 */}
           <p className="text-[15px] mt-1 text-gray-100 leading-relaxed">{post.content}</p>
 
@@ -332,14 +344,6 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
             )}
             {post.flameState === "igniting" && post.isOwn && (
               <span className="text-orange-400 text-xs animate-pulse px-3">炎上中...</span>
-            )}
-            {post.flameState === "ignited" && !showApologyBox && (
-              <button
-                onClick={() => setShowApologyBox(true)}
-                className="text-blue-400 hover:text-blue-300 border border-blue-500/40 hover:border-blue-400 hover:bg-blue-500/10 text-xs px-3 py-1 rounded-full transition-colors font-medium"
-              >
-                謝罪する🙇
-              </button>
             )}
             {isIgnited && (
               <button
