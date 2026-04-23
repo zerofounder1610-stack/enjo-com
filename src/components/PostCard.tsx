@@ -184,7 +184,7 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
             <div className="flex justify-end mt-1">
               <button
                 onClick={() => setShowApologyBox(true)}
-                className="text-blue-400 hover:text-blue-300 border border-blue-500/40 hover:border-blue-400 hover:bg-blue-500/10 text-xs px-3 py-1 rounded-full transition-colors font-medium"
+                className="text-blue-400 hover:text-blue-300 border border-blue-500/40 hover:border-blue-400 hover:bg-blue-500/10 text-sm px-4 py-1.5 rounded-full transition-colors font-semibold"
               >
                 謝罪する🙇
               </button>

@@ -7,6 +7,7 @@ import PostCard from "@/components/PostCard";
 import NewsCard from "@/components/NewsCard";
 import UserSetupModal, { type LocalUser } from "@/components/UserSetupModal";
 import FeedbackModal from "@/components/FeedbackModal";
+import WelcomeModal from "@/components/WelcomeModal";
 import { supabase } from "@/lib/supabase";
 
 const NEWS_THRESHOLD = 75;
@@ -100,6 +101,7 @@ export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [postRemaining, setPostRemaining] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const userRef = useRef<LocalUser | null>(null);
   const pullStartY = useRef(0);
   const isPulling = useRef(false);
@@ -193,6 +195,11 @@ export default function Home() {
 
   // ユーザー読み込み
   useEffect(() => {
+    const welcomeSeen = localStorage.getItem("enjo_welcome_seen");
+    if (!welcomeSeen) {
+      setShowWelcome(true);
+      return;
+    }
     const stored = localStorage.getItem("enjo_user");
     if (stored) {
       const u = JSON.parse(stored) as LocalUser;
@@ -278,6 +285,21 @@ export default function Home() {
       else result.push(n);
     }
     return result;
+  }
+
+  function handleWelcomeClose() {
+    localStorage.setItem("enjo_welcome_seen", "1");
+    setShowWelcome(false);
+    const stored = localStorage.getItem("enjo_user");
+    if (stored) {
+      const u = JSON.parse(stored) as LocalUser;
+      setUser(u);
+      userRef.current = u;
+      fetchIgniteRemaining(u.handle);
+      fetchPostRemaining(u.handle);
+    } else {
+      setShowSetup(true);
+    }
   }
 
   function handleUserSave(u: LocalUser) {
@@ -478,6 +500,7 @@ export default function Home() {
 
   return (
     <>
+      {showWelcome && <WelcomeModal onClose={handleWelcomeClose} />}
       {showSetup && <UserSetupModal onSave={handleUserSave} />}
       {showFeedback && user && (
         <FeedbackModal
