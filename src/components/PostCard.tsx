@@ -64,16 +64,16 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
     try {
       // modern-screenshot は SVG foreignObject 経由でキャプチャするため
       // oklch/lab などのブラウザ依存カラーもそのまま処理できる
-      const { domToPng } = await import("modern-screenshot");
+      const { domToJpeg } = await import("modern-screenshot");
 
-      const dataUrl = await domToPng(target, { scale: 2 });
+      const dataUrl = await domToJpeg(target, { scale: 2, backgroundColor: "#000000" });
       const flameScore = post.flameResult!.flameScore;
 
       // Android / iOS のみ Web Share API（ファイル共有）
       const isMobileUA = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       if (isMobileUA && navigator.canShare) {
         const blob = await fetch(dataUrl).then((r) => r.blob());
-        const file = new File([blob], "enjo-result.png", { type: "image/png" });
+        const file = new File([blob], "enjo-result.jpg", { type: "image/jpeg" });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
@@ -87,7 +87,7 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
       // PC: 画像ダウンロード
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = "enjo-result.png";
+      a.download = "enjo-result.jpg";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
