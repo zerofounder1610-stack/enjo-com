@@ -98,6 +98,7 @@ export default function Home() {
   const [igniteRemaining, setIgniteRemaining] = useState<number | null>(null);
   const [igniteLimit, setIgniteLimit] = useState(5);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [postRemaining, setPostRemaining] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const userRef = useRef<LocalUser | null>(null);
   const pullStartY = useRef(0);
@@ -118,6 +119,14 @@ export default function Home() {
     }
   }
 
+  async function fetchPostRemaining(handle: string) {
+    const res = await fetch(`/api/post?handle=${encodeURIComponent(handle)}`);
+    if (res.ok) {
+      const data = await res.json();
+      setPostRemaining(data.remaining);
+    }
+  }
+
   async function loadPosts() {
     const { data, error: err } = await supabase
       .from("posts")
@@ -128,7 +137,14 @@ export default function Home() {
     if (err) console.error("load error:", err);
     if (data) {
       const handle = userRef.current?.handle;
-      const sorted = insertNewsInOrder(data.map((r) => fromDB(r as DBRow, handle)));
+      const filtered = (data as DBRow[]).filter(
+        (r) =>
+          r.handle === handle ||
+          r.flame_state === "ignited" ||
+          r.flame_state === "apologized" ||
+          r.type === "news"
+      );
+      const sorted = insertNewsInOrder(filtered.map((r) => fromDB(r, handle)));
       setPosts(sorted);
     }
   }
@@ -183,6 +199,7 @@ export default function Home() {
       setUser(u);
       userRef.current = u;
       fetchIgniteRemaining(u.handle);
+      fetchPostRemaining(u.handle);
     } else {
       setShowSetup(true);
     }
@@ -204,6 +221,10 @@ export default function Home() {
         (payload) => {
           const row = payload.new as DBRow;
           if (row.type === "registration" || row.type === "deleted") return;
+          const isOwn = row.handle === userRef.current?.handle;
+          const isIgnited = row.flame_state === "ignited" || row.flame_state === "apologized";
+          const isNews = row.type === "news";
+          if (!isOwn && !isIgnited && !isNews) return;
           const newPost = fromDB(row, userRef.current?.handle);
           setPosts((prev) => {
             if (prev.some((p) => p.id === newPost.id)) return prev;
@@ -229,11 +250,18 @@ export default function Home() {
             return;
           }
           const updated = fromDB(row, userRef.current?.handle);
-          setPosts((prev) =>
-            prev.map((p) =>
+          setPosts((prev) => {
+            const exists = prev.some((p) => p.id === updated.id);
+            if (!exists) {
+              if (updated.flameState === "ignited" || updated.flameState === "apologized") {
+                return [updated, ...prev];
+              }
+              return prev;
+            }
+            return prev.map((p) =>
               p.id === updated.id && p.flameState !== "igniting" ? updated : p
-            )
-          );
+            );
+          });
         }
       )
       .subscribe();
@@ -257,6 +285,7 @@ export default function Home() {
     userRef.current = u;
     setShowSetup(false);
     fetchIgniteRemaining(u.handle);
+    fetchPostRemaining(u.handle);
   }
 
   async function addPost(content: string) {
@@ -276,20 +305,18 @@ export default function Home() {
       isOwn: true,
     };
     setPosts((prev) => [newPost, ...prev]);
-    const { error: err } = await supabase.from("posts").insert({
-      id,
-      username: u.username,
-      handle: u.handle,
-      avatar: u.avatar,
-      content,
-      likes: 0,
-      reposts: 0,
-      flame_state: "normal",
+    const res = await fetch("/api/post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, handle: u.handle, username: u.username, avatar: u.avatar, content }),
     });
-    if (err) {
-      console.error("insert error:", err);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
       setPosts((prev) => prev.filter((p) => p.id !== id));
-      setError("投稿の保存に失敗しました");
+      setError(body.error ?? "投稿の保存に失敗しました");
+    } else {
+      const data = await res.json();
+      setPostRemaining(data.remaining);
     }
   }
 
@@ -489,7 +516,7 @@ export default function Home() {
           )}
           <span>{refreshing ? "更新中..." : pullY >= PULL_THRESHOLD ? "離して更新" : "引っ張って更新"}</span>
         </div>
-        <ComposeBox onSubmit={addPost} user={user} onNeedUser={() => setShowSetup(true)} />
+        <ComposeBox onSubmit={addPost} user={user} onNeedUser={() => setShowSetup(true)} postRemaining={postRemaining} />
         {user && igniteRemaining !== null && (
           <div className="px-4 py-2 border-b border-gray-800 flex items-center gap-2.5 text-xs text-gray-500">
             <span>炎上残り</span>

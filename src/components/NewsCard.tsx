@@ -24,12 +24,12 @@ export default function NewsCard({ post }: Props) {
 
         <div className="flex-1 min-w-0">
           {/* ヘッダー */}
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="font-bold text-sm">{post.username}</span>
-            <span className="text-gray-500 text-sm">@{post.handle}</span>
-            <span className="text-gray-500 text-sm">·</span>
-            <span className="text-gray-500 text-sm">{post.timestamp}</span>
-            <span className="ml-auto bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full border border-blue-500/30 font-semibold shrink-0">
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="font-bold text-sm truncate shrink min-w-0">{post.username}</span>
+            <span className="text-gray-500 text-sm shrink-0">@{post.handle}</span>
+            <span className="text-gray-500 text-sm shrink-0">·</span>
+            <span className="text-gray-500 text-sm shrink-0 whitespace-nowrap">{post.timestamp}</span>
+            <span className="ml-auto bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full border border-blue-500/30 font-semibold shrink-0 whitespace-nowrap">
               ニュース
             </span>
           </div>

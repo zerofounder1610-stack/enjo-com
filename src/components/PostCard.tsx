@@ -118,29 +118,11 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
   const isIgnited = post.flameState === "ignited" || post.flameState === "apologized";
 
   const flameScore = post.flameResult?.flameScore ?? 0;
-  const isRaging = isIgnited && flameScore >= 80;
   const title = isIgnited && post.flameResult ? getTitle(flameScore) : null;
 
   return (
   <>
-    <article
-      ref={cardRef}
-      className={`px-4 py-3 transition-colors relative overflow-hidden border-l-2 ${
-        isRaging
-          ? "hover:bg-red-950/20 flame-border border-orange-600/60"
-          : "hover:bg-gray-950 border-transparent"
-      }`}
-    >
-      {/* 80点以上：火の粉エフェクト */}
-      {isRaging && (
-        <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
-          <span className="ember">🔥</span>
-          <span className="ember">✨</span>
-          <span className="ember">🔥</span>
-          <span className="ember">✨</span>
-          <span className="ember">🔥</span>
-        </div>
-      )}
+    <article ref={cardRef} className="px-4 py-3 hover:bg-gray-950 transition-colors">
       <div className="flex gap-3">
         {/* アバター */}
         <div ref={avatarRef} className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-xl shrink-0 select-none">
@@ -149,23 +131,24 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
 
         <div className="flex-1 min-w-0">
           {/* ヘッダー */}
-          <div className="flex items-center gap-1 flex-wrap">
-            <span ref={usernameRef} className="font-bold text-sm">{post.username}</span>
-            <span ref={handleRef} className="text-gray-500 text-sm">@{post.handle}</span>
-            <span className="text-gray-500 text-sm">·</span>
-            <span className="text-gray-500 text-sm">{post.timestamp}</span>
+          <div className="flex items-center gap-1 min-w-0">
+            <span ref={usernameRef} className="font-bold text-sm truncate shrink min-w-0">{post.username}</span>
+            <span ref={handleRef} className="text-gray-500 text-sm shrink-0">@{post.handle}</span>
+            <span className="text-gray-500 text-sm shrink-0">·</span>
+            <span className="text-gray-500 text-sm shrink-0 whitespace-nowrap">{post.timestamp}</span>
+            <div className="ml-auto flex items-center gap-1 shrink-0">
             {post.flameState === "igniting" && (
-              <span className="ml-auto text-xs text-orange-400 animate-pulse">
+              <span className="text-xs text-orange-400 animate-pulse whitespace-nowrap">
                 炎上分析中...
               </span>
             )}
             {isIgnited && post.flameResult && (
-              <span className="ml-auto bg-orange-500/15 text-orange-400 text-xs px-2 py-0.5 rounded-full border border-orange-500/30 font-semibold shrink-0">
+              <span className="bg-orange-500/15 text-orange-400 text-xs px-2 py-0.5 rounded-full border border-orange-500/30 font-semibold whitespace-nowrap">
                 炎上中🔥 {post.flameResult.flameScore}点
               </span>
             )}
             {(post.isOwn || isAdmin) && onDelete && (
-              <div className="relative ml-auto">
+              <div className="relative">
                 <button
                   onClick={() => setShowMenu((v) => !v)}
                   className="text-gray-500 hover:text-gray-300 hover:bg-gray-800 p-1 rounded-full transition-colors"
@@ -193,6 +176,7 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
                 )}
               </div>
             )}
+            </div>
           </div>
 
           {/* 投稿本文 */}
@@ -203,7 +187,7 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
             <div className="mt-3 space-y-2">
               <FlameMeter score={post.flameResult.flameScore} />
               {title && (
-                <span className={`inline-flex items-center text-xs px-2.5 py-1 rounded-full border font-bold ${title.color} ${isRaging ? "flame-flicker" : ""}`}>
+                <span className={`inline-flex items-center text-xs px-2.5 py-1 rounded-full border font-bold ${title.color}`}>
                   {title.label}
                 </span>
               )}
@@ -292,8 +276,8 @@ export default function PostCard({ post, onIgnite, onApologize, onDelete, ignite
           {isIgnited && post.flameResult && (() => {
             const eng = calcEngagement(post.flameResult.flameScore);
             return (
-              <div className="mt-3 pt-3 border-t border-gray-800 flex gap-4 text-xs text-gray-400">
-                <span><strong className="text-white">{fmt(eng.impressions)}</strong> インプレッション</span>
+              <div className="mt-3 pt-3 border-t border-gray-800 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400">
+                <span><strong className="text-white">{fmt(eng.impressions)}</strong> 表示</span>
                 <span><strong className="text-white">{fmt(eng.reposts)}</strong> リポスト</span>
                 <span><strong className="text-white">{fmt(eng.likes)}</strong> いいね</span>
                 <span><strong className="text-white">{fmt(eng.replies)}</strong> 返信</span>

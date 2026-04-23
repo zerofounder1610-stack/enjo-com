@@ -7,14 +7,18 @@ type Props = {
   onSubmit: (content: string) => void;
   user: LocalUser | null;
   onNeedUser: () => void;
+  postRemaining?: number | null;
 };
 
-export default function ComposeBox({ onSubmit, user, onNeedUser }: Props) {
+export default function ComposeBox({ onSubmit, user, onNeedUser, postRemaining }: Props) {
   const [text, setText] = useState("");
+
+  const atPostLimit = postRemaining !== null && postRemaining !== undefined && postRemaining <= 0;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user) { onNeedUser(); return; }
+    if (atPostLimit) return;
     if (text.trim()) {
       onSubmit(text.trim());
       setText("");
@@ -42,14 +46,27 @@ export default function ComposeBox({ onSubmit, user, onNeedUser }: Props) {
           onFocus={() => { if (!user) onNeedUser(); }}
         />
         <div className="flex items-center justify-between pt-3 border-t border-gray-800">
-          <span className="text-sm text-gray-500">{text.length}/280</span>
-          <button
-            type="submit"
-            disabled={!text.trim()}
-            className="bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-5 py-1.5 rounded-full text-sm transition-colors"
-          >
-            投稿
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">{text.length}/280</span>
+            {postRemaining !== null && postRemaining !== undefined && (
+              <span className={`text-xs ${atPostLimit ? "text-red-400" : postRemaining <= 2 ? "text-orange-400" : "text-gray-600"}`}>
+                投稿残り{postRemaining}回
+              </span>
+            )}
+          </div>
+          {atPostLimit ? (
+            <span className="text-gray-600 border border-gray-700 text-xs px-4 py-1.5 rounded-full cursor-not-allowed">
+              上限✋
+            </span>
+          ) : (
+            <button
+              type="submit"
+              disabled={!text.trim()}
+              className="bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-5 py-1.5 rounded-full text-sm transition-colors"
+            >
+              投稿
+            </button>
+          )}
         </div>
       </div>
     </form>
